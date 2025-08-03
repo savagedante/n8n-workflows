@@ -1,0 +1,359 @@
+{
+  "name": "newsletter-IT-AI",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        64
+      ],
+      "id": "a31270f2-2376-435a-81e7-d09a53d796b6",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rssUrls = [\n  \"https://antyweb.pl/feed/\", // Poprawiony URL\n  \"https://blog.justjoin.it/tag/sztuczna-inteligencja/feed\",\n  \"https://sztucznainteligencja.org.pl/feed\",\n  \"https://www.chip.pl/kategoria/sztuczna-inteligencja/feed\",\n  \"https://www.dobreprogramy.pl/tagi/ai,news,rss\",\n  \"https://zaufanatrzeciastrona.pl/feed/\",\n  \"https://linux.pl/feed/\",\n  \"https://ai.googleblog.com/feeds/posts/default\",\n  \"https://openai.com/blog/rss.xml\",\n  \"https://www.anthropic.com/news.xml\",\n  \"https://www.technologyreview.com/feed/tag/artificial-intelligence/\",\n  \"https://www.theverge.com/rss/ai-artificial-intelligence/index.xml\",\n  \"https://huggingface.co/blog/feed.xml\",\n  \"https://machinelearningmastery.com/feed/\",\n  \"https://blogs.nvidia.com/blog/category/artificial-intelligence/feed/\",\n  \"https://feeds.feedburner.com/TheHackerNews\",\n  \"https://www.bleepingcomputer.com/feed/\",\n  \"https://www.darkreading.com/rss_simple.asp\",\n  \"https://www.hashicorp.com/blog/feed.xml\",\n  \"https://www.servethehome.com/feed/\"\n];\n\nconst uniqueUrls = [...new Set(rssUrls)];\nreturn uniqueUrls.map(url => ({ url: url }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        64
+      ],
+      "id": "744c955a-6ad0-481f-99ba-31f3db17aba2",
+      "name": "Lista Linków RSS"
+    },
+    {
+      "parameters": {
+        "model": "sonar",
+        "messages": {
+          "message": [
+            {
+              "content": "=Jesteś analitykiem newsów technologicznych. Znajdź 5 najważniejszych, globalnych nowinek ze świata IT, AI i cyberbezpieczeństwa z ostatnich 24 godzin. Dla każdej nowinki podaj zwięzłe, dwuzdaniowe podsumowanie w języku polskim oraz bezpośredni link do głównego źródła."
+            }
+          ]
+        },
+        "options": {},
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.perplexity",
+      "typeVersion": 1,
+      "position": [
+        464,
+        368
+      ],
+      "id": "f953711a-b0a9-448c-b840-5d463e87cd19",
+      "name": "Research Perplexity",
+      "credentials": {
+        "perplexityApi": {
+          "id": "BykBtNaMZ6q4sw2j",
+          "name": "Perplexity account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const perplexityResults = $input.all();\nconst results = [];\n\nconsole.log('Perplexity raw results:', JSON.stringify(perplexityResults, null, 2));\n\nfor (const item of perplexityResults) {\n  try {\n    let content = '';\n    \n    // Sprawdź różne możliwe struktury odpowiedzi\n    if (item.json?.answer) {\n      content = item.json.answer;\n    } else if (item.json?.response) {\n      content = item.json.response;\n    } else if (item.json?.content) {\n      content = item.json.content;\n    } else if (item.json?.text) {\n      content = item.json.text;\n    } else {\n      console.log('Perplexity - nieznana struktura:', item.json);\n      continue;\n    }\n    \n    console.log('Perplexity content:', content);\n    \n    // Podziel na linie i znajdź artykuły\n    const lines = content.split('\\n').filter(line => line.trim());\n    \n    for (const line of lines) {\n      const trimmedLine = line.trim();\n      \n      // Szukaj linii które wyglądają jak tytuły artykułów\n      if (trimmedLine.match(/^\\d+\\./) || // \"1. Tytuł\"\n          trimmedLine.includes('[') ||     // \"[Tytuł]\"\n          trimmedLine.includes('http') ||  // linki\n          (trimmedLine.length > 20 && trimmedLine.includes('AI'))) { // długie linie z AI\n        \n        results.push({\n          json: {\n            source: 'Perplexity',\n            title: trimmedLine.replace(/^\\d+\\.\\s*/, '').replace(/^\\[|\\]$/g, ''),\n            link: '',\n            summary: trimmedLine,\n            pubDate: new Date().toISOString(),\n            sourceUrl: 'Perplexity AI'\n            const linkMatch = trimmedLine.match(/(https?:\\/\\/[^\\s]+)/);\nlink: linkMatch ? linkMatch[1] : '',\n          }\n        });\n      }\n    }\n    \n    // Jeśli nie znalazł nic, dodaj całą odpowiedź jako jeden item\n    if (results.length === 0 && content.length > 10) {\n      results.push({\n        json: {\n          source: 'Perplexity',\n          title: 'Podsumowanie wiadomości AI z Perplexity',\n          link: '',\n          summary: content.substring(0, 500) + '...',\n          pubDate: new Date().toISOString(),\n          sourceUrl: 'Perplexity AI'\n        }\n      });\n    }\n    \n  } catch (error) {\n    console.log('Błąd parsowania Perplexity:', error);\n  }\n}\n\nconsole.log('Perplexity parsed results count:', results.length);\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        192
+      ],
+      "id": "1bc4eba0-039b-4d00-a3d4-b53750607e94",
+      "name": "Formatuj Perplexity"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1568,
+        192
+      ],
+      "id": "8379b123-ca8c-4ced-9910-a2cd8ee07819",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const allArticles = $input.all();\n\n// Analizuj źródła\nconst rssSources = allArticles.filter(item => item.json.source === 'RSS');\nconst perplexityNews = allArticles.filter(item => item.json.source === 'Perplexity');\n\n// Statystyki dla debugowania\nconst stats = {\n  totalArticles: allArticles.length,\n  rssArticles: rssSources.length,\n  perplexityArticles: perplexityNews.length,\n  uniqueSources: [...new Set(rssSources.map(item => item.json.sourceUrl))]\n};\n\nlet newsletterHtml = `\n<html>\n<head>\n  <meta charset=\"utf-8\">\n  <title>Newsletter IT/AI - ${new Date().toLocaleDateString('pl-PL')}</title>\n</head>\n<body style=\"font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;\">\n  <h1>🤖 Newsletter IT/AI - ${new Date().toLocaleDateString('pl-PL')}</h1>\n  \n  <!-- STATYSTYKI DEBUGOWANIA -->\n  <div style=\"background: #f0f0f0; padding: 15px; margin-bottom: 20px; border-radius: 5px;\">\n    <h3>📊 Statystyki źródeł:</h3>\n    <ul>\n      <li><strong>Łącznie artykułów:</strong> ${stats.totalArticles}</li>\n      <li><strong>Z RSS feeds:</strong> ${stats.rssArticles}</li>\n      <li><strong>Z Perplexity:</strong> ${stats.perplexityArticles}</li>\n      <li><strong>Aktywne źródła RSS:</strong> ${stats.uniqueSources.length}</li>\n    </ul>\n    <details>\n      <summary>Źródła RSS (kliknij aby rozwinąć)</summary>\n      <ul>\n        ${stats.uniqueSources.map(source => `<li>${source}</li>`).join('')}\n      </ul>\n    </details>\n  </div>\n  \n  <h2>📰 Najnowsze wiadomości z RSS (${stats.rssArticles})</h2>\n`;\n\n// Reszta kodu bez zmian...\nrssSources.forEach((article, index) => {\n  newsletterHtml += `\n  <div style=\"margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px;\">\n    <h3><a href=\"${article.json.link}\" style=\"color: #2196F3; text-decoration: none;\">${article.json.title}</a></h3>\n    <p style=\"color: #666; margin: 5px 0;\">${article.json.summary}</p>\n    <small style=\"color: #999;\">Źródło: ${article.json.sourceUrl} | ${article.json.pubDate}</small>\n  </div>\n  `;\n});\n\nnewsletterHtml += `\n  <h2>🔍 Dodatkowe wiadomości z Perplexity (${stats.perplexityArticles})</h2>\n`;\n\nperplexityNews.forEach((news, index) => {\n  newsletterHtml += `\n  <div style=\"margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px;\">\n    <p>${news.json.title}</p>\n  </div>\n  `;\n});\n\nnewsletterHtml += `\n  <hr style=\"margin: 30px 0;\">\n  <p style=\"text-align: center; color: #999; font-size: 16px;\">\n    Newsletter wygenerowany automatycznie ${new Date().toLocaleString('pl-PL')}\n  </p>\n</body>\n</html>\n`;\n\nreturn [{\n  json: {\n    subject: `Newsletter IT/AI - ${new Date().toLocaleDateString('pl-PL')} (${stats.totalArticles} artykułów)`,\n    html: newsletterHtml,\n    text: `Newsletter IT/AI z ${new Date().toLocaleDateString('pl-PL')}\\nRSS: ${stats.rssArticles}, Perplexity: ${stats.perplexityArticles}`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        192
+      ],
+      "id": "9519a37a-5eb8-4079-afcd-6c433ea7f7a8",
+      "name": "Stwórz Newsletter"
+    },
+    {
+      "parameters": {
+        "sendTo": "swiatowid1@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1888,
+        192
+      ],
+      "id": "b1852fd7-6503-4758-b246-4f0c143e63b9",
+      "name": "Send a message",
+      "webhookId": "a8bb0497-bb84-4c98-8068-22895596420c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Oh6a73m8UxOmNe24",
+          "name": "moj n8n Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        576,
+        16
+      ],
+      "id": "2dd19cf9-5f4c-4641-b2b8-1ef24af1b2ed",
+      "name": "HTTP Request",
+      "executeOnce": false,
+      "alwaysOutputData": false,
+      "notesInFlow": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Zapytanie dla Perplexity\nconst today = new Date().toISOString().split('T')[0];\n\nreturn [{\n  json: {\n    query: `Znajdź najważniejsze wiadomości z dziś (${today}) o sztucznej inteligencji, AI, machine learning , i z branży it  ( w tym sieci internetowych)z Polski i świata. Podaj 5-10 najciekawszych newsów z tytułami i krótkimi opisami.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        64
+      ],
+      "id": "36db6223-e9a3-4990-a85e-1eed65cdc81e",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const perplexityResults = $input.all();\n\nconst results = [];\n\nfor (const item of perplexityResults) {\n  if (item.json && item.json.answer) {\n    // Parsuj odpowiedź Perplexity i wyciągnij newsy\n    const answer = item.json.answer;\n    \n    // Podziel na sekcje (to będzie zależne od formatu odpowiedzi Perplexity)\n    const lines = answer.split('\\n').filter(line => line.trim());\n    \n    lines.forEach(line => {\n      if (line.includes('http') || line.match(/^\\d+\\./)) {\n        results.push({\n          json: {\n            source: 'Perplexity',\n            title: line.trim(),\n            link: '',\n            summary: line.trim(),\n            pubDate: new Date().toISOString(),\n            sourceUrl: 'Perplexity AI'\n          }\n        });\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        352
+      ],
+      "id": "f78ee9ec-dfdc-4714-91ac-e9d365a4b007",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Dodaj dzisiejszą datę w różnych formatach\nconst today = new Date();\nconst todayPL = today.toLocaleDateString('pl-PL');\nconst todayISO = today.toISOString().split('T')[0];\n\nreturn [{\n  json: {\n    query: `Najważniejsze wiadomości z ostatnich 24 godzin (${todayPL}) o:\n    - sztucznej inteligencji\n    - AI w Polsce i na świecie  \n    - machine learning\n    - nowych modelach AI\n    - technologiach AI\n    \n    Podaj 5-7 najciekawszych newsów z tytułami, źródłami i krótkimi opisami.\n    \n    Format: \n    1. [Tytuł] - opis\n    2. [Tytuł] - opis\n    itd.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        352
+      ],
+      "id": "fd4d8d2f-8c11-42e0-8531-78e8f1b79cb3",
+      "name": "Code3"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [
+        800,
+        32
+      ],
+      "id": "bcb7dda9-0f46-4174-9046-fcf2fc4627a8",
+      "name": "XML"
+    }
+  ],
+  "pinData": {
+    "Formatuj Perplexity": [
+      {
+        "json": {
+          "name": "First item",
+          "code": 1
+        }
+      },
+      {
+        "json": {
+          "name": "Second item",
+          "code": 2
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Lista Linków RSS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lista Linków RSS": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Perplexity": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatuj Perplexity": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Stwórz Newsletter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stwórz Newsletter": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "XML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Code3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Formatuj Perplexity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "Research Perplexity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "XML": {
+      "main": [
+        [
+          {
+            "node": "Formatuj Perplexity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "df8ada87-3419-4967-bfdb-47c643bcca68",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7c498f17fdb44936fef34dcaf3dd117fd2848efa04b9682bf32f04548c4d04f3"
+  },
+  "id": "NmBwAHovUsK7WUnv",
+  "tags": []
+}
